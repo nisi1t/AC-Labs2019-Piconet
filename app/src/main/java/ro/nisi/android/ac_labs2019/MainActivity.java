@@ -9,6 +9,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.firebase.auth.FirebaseAuth;
@@ -21,6 +22,7 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import ro.nisi.android.ac_labs2019.service.EasyPayService;
 import ro.nisi.android.ac_labs2019.service.PayResponse;
+import ro.nisi.android.ac_labs2019.service.StatusResponse;
 
 public class MainActivity extends AppCompatActivity {
     private final static String TAG = "AC-LABS";
@@ -33,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     private EditText phoneEdit;
     private EditText prefixEdit;
     private EditText plateNrEdit;
+    private TextView status;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +55,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (currentUser != null){
             this.service = initRetrofit("http://aclabs2019.nisi.ro/");
+
+            refreshStatus();
         }
     }
 
@@ -86,10 +91,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void initUi(){
+    private void initUi() {
         phoneEdit = findViewById(R.id.phoneEdit);
         prefixEdit = findViewById(R.id.prefixEdit);
         plateNrEdit = findViewById(R.id.plateNrEdit);
+        status = findViewById(R.id.status);
+
+        status.setText("Inactive");
 
         findViewById(R.id.payBtn).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -144,6 +152,44 @@ public class MainActivity extends AppCompatActivity {
 
         } else {
             Log.d(TAG, "No service found");
+        }
+    }
+
+    private void refreshStatus(){
+        if (service != null) {
+            // create service call
+            Call<StatusResponse> payCall = service.status();
+
+            // enqueue to async list
+            payCall.enqueue(new Callback<StatusResponse>() {
+                @Override
+                public void onResponse(Call<StatusResponse> call, Response<StatusResponse> response) {
+                    if (!response.isSuccessful()) {
+                        Log.d(TAG, "No Success");
+                    }
+
+                    StatusResponse resp = response.body();
+
+                    if (resp != null) {
+                        Log.d(TAG, "Service: " + resp.name + ", " + resp.version+ ", " + resp.status);
+
+                        String statusTxt = String.format("%s (%s) %s", resp.name, resp.version, resp.status?"Active":"Inactive");
+                        status.setText(statusTxt);
+                    } else {
+                        Log.d(TAG, "Empty response");
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<StatusResponse> call, Throwable t) {
+                    Log.d(TAG, "Fail: " + t.getMessage());
+                    Toast.makeText(MainActivity.this, "Status retrieved failed", Toast.LENGTH_LONG).show();
+                }
+            });
+
+        } else {
+            Log.d(TAG, "No service found");
+            status.setText("Inactive");
         }
     }
 }
